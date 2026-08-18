@@ -20,6 +20,10 @@
  * summary or an old cached page). If the box is missing although the bar
  * exists, remove the bar. A one time shift is better than a dead button.
  *
+ * Compatibility note: DOM removal goes through parentNode.removeChild,
+ * because legacy scripts on old article pages overwrite the native
+ * Element.prototype.remove with a no op function.
+ *
  * Security notes (see Sicherheitsrichtlinie):
  *	- Presentation only, no security function on the client side (#5).
  *	- Every dynamic string is written via textContent, never innerHTML,
@@ -28,7 +32,7 @@
  *	- The module holds no secrets and no privileged logic (#26).
  *
  * @author mesios
- * @version 2 18.08.2026
+ * @version 3 18.08.2026
  */
 ( () => {
 	'use strict';
@@ -42,10 +46,27 @@
 	};
 
 	/**
+	 * Remove a node from the DOM without relying on Element.remove,
+	 * which legacy scripts on old article pages overwrite with a
+	 * no op function.
+	 *
+	 * @author mesios
+	 * @version 1 18.08.2026
+	 * @param Node node Node to detach from its parent
+	 * @return void
+	 */
+	function detach( node ) {
+
+		if( node && node.parentNode ) {
+			node.parentNode.removeChild( node );
+		}
+	}
+
+	/**
 	 * Set up the takeaways bar on the current article page.
 	 *
 	 * @author mesios
-	 * @version 2 18.08.2026
+	 * @version 3 18.08.2026
 	 * @return void
 	 */
 	function init() {
@@ -74,7 +95,7 @@
 			: [];
 
 		if( !items.length ) {
-			bar.remove();
+			detach( bar );
 
 			return;
 		}
@@ -133,10 +154,10 @@
 		const next_el = old_box.nextElementSibling;
 
 		if( next_el && next_el.tagName === 'BR' ) {
-			next_el.remove();
+			detach( next_el );
 		}
 
-		old_box.remove();
+		detach( old_box );
 
 		/**
 		 * Wrap the bullet texts into word and character spans and give
