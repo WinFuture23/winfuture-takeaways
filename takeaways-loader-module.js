@@ -17,6 +17,9 @@
  *	2. Remove that box (plus one following br) right on load, while
  *	   it is still below the viewport. This keeps the change CLS neutral.
  *	3. Enable the button, wire up height animation and character ticker.
+ *	4. Fit bullets to a single line where only a word or two overflow,
+ *	   by reducing the font size of all bullets by a small, capped step.
+ *	   Genuinely long bullets are left to wrap (text-wrap: pretty).
  *
  * Error behaviour: if the bar is missing, do nothing (article without a
  * summary or an old cached page). If the box is missing although the bar
@@ -34,7 +37,7 @@
  *	- The module holds no secrets and no privileged logic (#26).
  *
  * @author mesios
- * @version 4 18.08.2026
+ * @version 5 18.08.2026
  */
 ( () => {
 	'use strict';
@@ -68,7 +71,7 @@
 	 * Set up the takeaways bar on the current article page.
 	 *
 	 * @author mesios
-	 * @version 4 18.08.2026
+	 * @version 5 18.08.2026
 	 * @return void
 	 */
 	function init() {
@@ -170,6 +173,133 @@
 		}
 
 		detach( old_box );
+
+		// Prettier wrap for bullets that stay multi line, and avoid a
+		// long unbroken token (for example a URL) overflowing sideways.
+		list.style.textWrap = 'pretty';
+		list.style.overflowWrap = 'break-word';
+
+		// Fit near-miss bullets onto one line now; repeat once after web
+		// fonts settle, but only while still closed to avoid a visible jump.
+		fit_bullets();
+
+		if( document.fonts && document.fonts.ready ) {
+			document.fonts.ready.then( () => {
+
+				if( !open ) {
+					fit_bullets();
+				}
+			} );
+		}
+
+		/**
+		 * Reduce the font size of ALL bullets by a small, capped step so
+		 * that bullets which overflow by only a word or two become single
+		 * line. Bullets that are genuinely long (well beyond the cap) are
+		 * left to wrap. Purely cosmetic, inside the closed body, so it
+		 * never shifts visible layout.
+		 *
+		 * @author mesios
+		 * @version 1 18.08.2026
+		 * @return void
+		 */
+		function fit_bullets() {
+
+			try {
+
+				/*
+				 * @var array lis Current bullet elements
+				 */
+				const lis = [ ...list.children ];
+
+				if( !lis.length ) {
+					return;
+				}
+
+				// Start from the inherited base size on every run
+				list.style.fontSize = '';
+
+				/*
+				 * @var number base Inherited bullet font size in px
+				 */
+				const base = parseFloat( getComputedStyle( lis[ 0 ] ).fontSize );
+
+				if( !base ) {
+					return;
+				}
+
+				/*
+				 * @var number eps Ignore sub pixel rounding as overflow
+				 */
+				const eps = 1.005;
+
+				/*
+				 * @var number small Largest overflow still counted as
+				 * "a word or two", and still fixable within the floor
+				 */
+				const small = 1.15;
+
+				/*
+				 * @var number floor Smallest size we shrink to (px)
+				 */
+				const floor = Math.max( 13, base * 0.87 );
+
+				/*
+				 * @var number step Shrink step per iteration (px)
+				 */
+				const step = 0.5;
+
+				// Unbroken width divided by available width for one bullet
+				const overflow_ratio = ( li ) => {
+					const prev = li.style.whiteSpace;
+
+					li.style.whiteSpace = 'nowrap';
+
+					const avail = li.clientWidth;
+					const wanted = li.scrollWidth;
+
+					li.style.whiteSpace = prev;
+
+					return avail > 0 ? wanted / avail : 1;
+				};
+
+				/*
+				 * @var array targets Near-miss bullets at base size
+				 */
+				const targets = lis.filter( ( li ) => {
+					const r = overflow_ratio( li );
+
+					return r > eps && r <= small;
+				} );
+
+				if( !targets.length ) {
+					return;
+				}
+
+				/*
+				 * @var number size Working font size (px)
+				 */
+				let size = base;
+
+				/*
+				 * @var number guard Hard stop against endless loops
+				 */
+				let guard = 0;
+
+				while( size - step >= floor && guard++ < 40 ) {
+					size -= step;
+					list.style.fontSize = size + 'px';
+
+					if( !targets.some( ( li ) => overflow_ratio( li ) > eps ) ) {
+						break;
+					}
+				}
+			} catch ( e ) {
+
+				// On any measurement error keep the inherited base size
+				list.style.fontSize = '';
+			}
+		}
 
 		/**
 		 * Wrap the bullet texts into word and character spans and give
