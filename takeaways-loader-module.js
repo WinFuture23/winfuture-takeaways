@@ -11,8 +11,10 @@
  *	   HTML, so the editorial workflow does not change.
  *
  * Tasks of this module:
- *	1. Copy the bullets from .summary_box into the bar.
- *	2. Remove the old box (plus one following br) right on load, while
+ *	1. Copy the bullets from the article summary box into the bar. The
+ *	   source is the first .summary_box BELOW the bar in DOM order,
+ *	   because admin views render additional copies elsewhere.
+ *	2. Remove that box (plus one following br) right on load, while
  *	   it is still below the viewport. This keeps the change CLS neutral.
  *	3. Enable the button, wire up height animation and character ticker.
  *
@@ -32,7 +34,7 @@
  *	- The module holds no secrets and no privileged logic (#26).
  *
  * @author mesios
- * @version 3 18.08.2026
+ * @version 4 18.08.2026
  */
 ( () => {
 	'use strict';
@@ -66,7 +68,7 @@
 	 * Set up the takeaways bar on the current article page.
 	 *
 	 * @author mesios
-	 * @version 3 18.08.2026
+	 * @version 4 18.08.2026
 	 * @return void
 	 */
 	function init() {
@@ -81,9 +83,19 @@
 		}
 
 		/*
-		 * @var HTMLElement|null old_box Legacy summary box in the article
+		 * @var array boxes Summary boxes that FOLLOW the bar in DOM order.
+		 * Admin views and other page areas can contain additional copies
+		 * of the class, only the article box below the bar is relevant.
 		 */
-		const old_box = document.querySelector( '.summary_box' );
+		const boxes = [ ...document.querySelectorAll( '.summary_box' ) ]
+			.filter( ( box ) =>
+				( bar.compareDocumentPosition( box ) &
+					Node.DOCUMENT_POSITION_FOLLOWING ) !== 0 );
+
+		/*
+		 * @var HTMLElement|null old_box Article summary box below the bar
+		 */
+		const old_box = boxes.length ? boxes[ 0 ] : null;
 
 		/*
 		 * @var array items Bullet texts taken from the legacy summary box
