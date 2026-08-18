@@ -70,9 +70,10 @@
         li.textContent = '';
         const lineStart = lineIdx * SPEED.lineStagger;
         let c = 0;
-        for (const part of text.split(/(s+)/)) {
+        // Bewusst ohne Regex-Escapes gehalten (escaping-sicher bei Copy/Paste und Tooling):
+        for (const part of text.split(/( +)/)) {
           if (!part) continue;
-          if (/^s+$/.test(part)) { li.appendChild(document.createTextNode(' ')); continue; }
+          if (part.trim() === '') { li.appendChild(document.createTextNode(' ')); continue; }
           const w = document.createElement('span'); // hält Wörter beim Umbruch zusammen
           w.className = 'takeaways_w';
           for (const ch of part) {
